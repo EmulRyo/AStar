@@ -4,17 +4,19 @@
 #include "int2.h"
 #include "astar.h"
 
+enum CellAction_t { NONE, BLOCK, UNBLOCK };
 int g_gridCols = 19;
 int g_gridRows = 10;
 Int2 g_start   = { -1, -1 };
 Int2 g_goal    = { -1, -1 };
+enum CellAction_t g_cellAction = NONE;
 Texture2D g_arrow;
 
 Int2 GetCellID(Int2 screenPos) {
     Int2 cell = { -1, -1 };
 
     int minScreenSize = min(GetScreenWidth(), GetScreenHeight());
-    int margin = minScreenSize * 0.05f;
+    int margin = (int)(minScreenSize * 0.05f);
     int gridSize = minScreenSize - (2 * margin);
     int cellSize = gridSize / g_gridRows;
     int gridWidth = cellSize * g_gridCols;
@@ -57,50 +59,86 @@ float GetArrowRotation(Int2* path, size_t pathLen, int i, Int2 goal) {
 }
 
 void Update() {
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
 
         Int2 cell = GetCellID((Int2){ GetMouseX(), GetMouseY() });
 
         if (Int2IsValid(cell)) {
             bool modified = false;
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                if (!Int2IsValid(g_start)) {
+                    g_start = cell;
+                    AStarSet(cell.x, cell.y, false);
+                    modified = true;
+                }
 
-            if (!Int2IsValid(g_start)) {
-                g_start = cell;
-                AStarSet(cell.x, cell.y, false);
-                modified = true;
+                if (!modified && !Int2IsValid(g_goal) && (!Int2Equals(cell, g_start))) {
+                    g_goal = cell;
+                    AStarSet(cell.x, cell.y, false);
+                    modified = true;
+                }
+
+                if (!modified && Int2Equals(g_start, cell)) {
+                    g_start = (Int2){ -1, -1 };
+                    modified = true;
+                }
+
+                if (!modified && Int2Equals(g_goal, cell)) {
+                    g_goal = (Int2){ -1, -1 };
+                    modified = true;
+                }
+
+                if (!modified) {
+                    bool blocked = AStarGet(cell.x, cell.y);
+                    g_cellAction = blocked ? UNBLOCK : BLOCK;
+                    AStarSet(cell.x, cell.y, !blocked);
+                    modified = true;
+                }
             }
-
-            if (!modified && !Int2IsValid(g_goal) && (!Int2Equals(cell, g_start))) {
-                g_goal = cell;
-                AStarSet(cell.x, cell.y, false);
-                modified = true;
-            }
-
-            if (!modified && Int2Equals(g_start, cell)) {
-                g_start = (Int2){ -1, -1 };
-                modified = true;
-            }
-
-            if (!modified && Int2Equals(g_goal, cell)) {
-                g_goal = (Int2){ -1, -1 };
-                modified = true;
-            }
-
-            if (!modified) {
-                bool blocked = AStarGet(cell.x, cell.y);
-                AStarSet(cell.x, cell.y, !blocked);
-                modified = true;
+            else {
+                if (g_cellAction != NONE) {
+                    bool blocked = g_cellAction == BLOCK ? true : false;
+                    AStarSet(cell.x, cell.y, blocked);
+                }
             }
         }
 
         if (Int2IsValid(g_start) && Int2IsValid(g_goal))
             AStarSearch(g_start, g_goal);
     }
+
+    if (IsMouseButtonUp(MOUSE_BUTTON_LEFT))
+        g_cellAction = NONE;
+}
+
+void DrawPath(int margin, int cellSize) {
+    if (Int2IsValid(g_start) && Int2IsValid(g_goal)) {
+        Int2* path = NULL;
+        size_t pathLen = 0;
+        AStarPath(&path, &pathLen);
+        for (int i = 0; i < pathLen; i++) {
+            Int2* p = &path[i];
+            float rotation = GetArrowRotation(path, pathLen, i, g_goal);
+            DrawTexturePro(
+                g_arrow,
+                (Rectangle) {
+                0, 0, (float)g_arrow.width, (float)g_arrow.height
+            },
+                (Rectangle) {
+                margin + (cellSize * p->x) + cellSize * 0.5f, margin + (cellSize * p->y) + cellSize * 0.5f, cellSize * 0.5f, cellSize * 0.5f
+            },
+                (Vector2) {
+                cellSize * 0.25f, cellSize * 0.25f
+            },
+                rotation,
+                ColorAlpha(WHITE, 0.5f));
+        }
+    }
 }
 
 void Draw() {
     int minScreenSize = min(GetScreenWidth(), GetScreenHeight());
-    int margin = minScreenSize *0.05f;
+    int margin = (int)(minScreenSize *0.05f);
     int gridSize = minScreenSize - (2 * margin);
     int cellSize = gridSize / g_gridRows;
     int gridWidth = cellSize * g_gridCols;
@@ -131,21 +169,7 @@ void Draw() {
         }
     }
 
-    Int2* path = NULL;
-    size_t pathLen = 0;
-    AStarPath(&path, &pathLen);
-    for (int i = 0; i < pathLen; i++) {
-        Int2* p = &path[i];
-        //DrawCircle(margin + (cellSize * p->x) + cellSize / 2, margin + (cellSize * p->y) + cellSize / 2, cellSize / 8, SKYBLUE);
-        float rotation = GetArrowRotation(path, pathLen, i, g_goal);
-        DrawTexturePro(
-            g_arrow,
-            (Rectangle) { 0, 0, g_arrow.width, g_arrow.height },
-            (Rectangle) { margin + (cellSize * p->x) + cellSize * 0.5f,  margin + (cellSize * p->y) + cellSize * 0.5f, cellSize*0.5f, cellSize*0.5f },
-            (Vector2) { cellSize * 0.25f, cellSize * 0.25f },
-            rotation,
-            ColorAlpha(WHITE, 0.5f));
-    }
+    DrawPath(margin, cellSize);
 }
 
 void main() {
@@ -169,4 +193,5 @@ void main() {
         EndDrawing();
     }
     CloseWindow();
+    AStarDestroy();
 }
