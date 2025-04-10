@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <raylib.h>
+#include <rlgl.h>
 #include "int2.h"
 #include "astar.h"
 
@@ -116,9 +118,24 @@ void DrawPath(int margin, int cellSize) {
         Int2* path = NULL;
         size_t pathLen = 0;
         AStarPath(&path, &pathLen);
+
+        double duration = pathLen * 0.5;
+        double now = GetTime();
+        double wait = 1.0;
+        double timeNormalized = fmod(now, duration);
+        timeNormalized = timeNormalized / duration;
+        double time = timeNormalized * (pathLen+2) - 1.0f;
+
         for (int i = 0; i < pathLen; i++) {
             Int2* p = &path[i];
             float rotation = GetArrowRotation(path, pathLen, i, g_goal);
+            float alpha = 0.1f;
+            float dif = fabsf(time - i);
+            if (dif < 1.5f) {
+                dif = dif / 1.5f;
+                alpha = sin((1.0f - dif) * PI/2.0f) * 0.9f + 0.1f;
+            }
+
             DrawTexturePro(
                 g_arrow,
                 (Rectangle) {
@@ -131,9 +148,31 @@ void DrawPath(int margin, int cellSize) {
                 cellSize * 0.25f, cellSize * 0.25f
             },
                 rotation,
-                ColorAlpha(WHITE, 0.5f));
+                ColorAlpha(WHITE, alpha));
         }
     }
+}
+
+void DrawGridRectangle(Int2 pos, int margin, int cellSize, bool scaleAnim, float hue, float saturation) {
+    rlPushMatrix();
+    
+    float scale = 1.0f;
+    if (scaleAnim)
+        scale = 1.0f + sin(GetTime()) * 0.1f;
+
+    rlTranslatef(margin + (cellSize * pos.x) + cellSize * 0.5f + 2, margin + (cellSize * pos.y) + cellSize * 0.5f + 2, 0);
+    rlScalef(scale, scale, 1.0f);
+
+    Rectangle rectBG = { -cellSize * 0.5f+4, -cellSize * 0.5f+4, (float)(cellSize - 9), (float)(cellSize - 9) };
+    DrawRectangleRounded(rectBG, 0.5f, 4, GRAY);
+
+    Rectangle rectFG1 = { -cellSize*0.5f, -cellSize*0.5f, cellSize - 7, cellSize - 7 };
+    DrawRectangleRounded(rectFG1, 0.5f, 4, ColorFromHSV(hue, saturation, 1.0f));
+
+    Rectangle rectFG2 = { -cellSize*0.5f+4, -cellSize*0.5f+4, cellSize - 15, cellSize - 15 };
+    DrawRectangleRounded(rectFG2, 0.5f, 4, ColorFromHSV(hue, saturation, 0.8f));
+
+    rlPopMatrix();
 }
 
 void Draw() {
@@ -157,15 +196,15 @@ void Draw() {
     }
 
     if (Int2IsValid(g_start))
-        DrawRectangle(margin + (cellSize * g_start.x), margin + (cellSize * g_start.y), cellSize-1, cellSize-1, RED);
+        DrawGridRectangle(g_start, margin, cellSize, true, 0.0f, 1.0f);
 
     if (Int2IsValid(g_goal))
-        DrawRectangle(margin + (cellSize * g_goal.x), margin + (cellSize * g_goal.y), cellSize-1, cellSize-1, GREEN);
+        DrawGridRectangle(g_goal, margin, cellSize, true, 120.0f, 1.0f);
 
     for (int row = 0; row < g_gridRows; row++) {
         for (int col = 0; col < g_gridCols; col++) {
             if (AStarGet(col, row))
-                DrawRectangle(margin + (cellSize * col), margin + (cellSize * row), cellSize - 1, cellSize - 1, LIGHTGRAY);
+                DrawGridRectangle((Int2){col, row}, margin, cellSize, false, 0.0f, 0.0f);
         }
     }
 
@@ -175,7 +214,7 @@ void Draw() {
 void main() {
     AStarInit(g_gridCols, g_gridRows);
 
-    SetWindowState(FLAG_VSYNC_HINT);
+    SetConfigFlags(FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
     InitWindow(1280, 720, "AStar");
 
     g_arrow = LoadTexture("resources/white-arrow.png");
