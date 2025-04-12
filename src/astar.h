@@ -3,10 +3,13 @@
 
 #include "int2.h"
 
-void AStarInit(size_t width, size_t height);
+enum NavigationMode { FOUR_SIDES, EIGHT_SIDES };
+
+void AStarInit(size_t width, size_t height, enum NavigationMode navMode);
 void AStarDestroy();
-void AStarSet(size_t x, size_t y, bool blocked);
-bool AStarGet(size_t x, size_t y);
+void AStarSetBlocked(size_t x, size_t y, bool blocked);
+bool AStarIsBlocked(size_t x, size_t y);
+bool AStarIsVisited(size_t x, size_t y);
 bool AStarSearch(Int2 start, Int2 goal);
 void AStarPath(Int2** path, size_t* pathLen);
 

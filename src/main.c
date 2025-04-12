@@ -36,7 +36,7 @@ Int2 GetCellID(Int2 screenPos) {
     return cell;
 }
 
-float GetArrowRotation(Int2* path, size_t pathLen, int i, Int2 goal) {
+static float GetArrowRotation(Int2* path, size_t pathLen, int i, Int2 goal) {
     float rotation = 0;
     Int2* p = &path[i];
     Int2 dir = { 0 };
@@ -48,14 +48,8 @@ float GetArrowRotation(Int2* path, size_t pathLen, int i, Int2 goal) {
         dir = Int2Sub(goal, *p);
     }
     
-    if (dir.x > 0)
-        rotation = 0;
-    else if (dir.x < 0)
-        rotation = 180;
-    else if (dir.y > 0)
-        rotation = 90;
-    else if (dir.y < 0)
-        rotation = 270;
+    rotation = atan2f(dir.y, dir.x);
+    rotation = rotation * 180.0f / PI;
 
     return rotation;
 }
@@ -70,13 +64,13 @@ void Update() {
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 if (!Int2IsValid(g_start)) {
                     g_start = cell;
-                    AStarSet(cell.x, cell.y, false);
+                    AStarSetBlocked(cell.x, cell.y, false);
                     modified = true;
                 }
 
                 if (!modified && !Int2IsValid(g_goal) && (!Int2Equals(cell, g_start))) {
                     g_goal = cell;
-                    AStarSet(cell.x, cell.y, false);
+                    AStarSetBlocked(cell.x, cell.y, false);
                     modified = true;
                 }
 
@@ -91,16 +85,16 @@ void Update() {
                 }
 
                 if (!modified) {
-                    bool blocked = AStarGet(cell.x, cell.y);
+                    bool blocked = AStarIsBlocked(cell.x, cell.y);
                     g_cellAction = blocked ? UNBLOCK : BLOCK;
-                    AStarSet(cell.x, cell.y, !blocked);
+                    AStarSetBlocked(cell.x, cell.y, !blocked);
                     modified = true;
                 }
             }
             else {
                 if (g_cellAction != NONE) {
                     bool blocked = g_cellAction == BLOCK ? true : false;
-                    AStarSet(cell.x, cell.y, blocked);
+                    AStarSetBlocked(cell.x, cell.y, blocked);
                 }
             }
         }
@@ -130,23 +124,17 @@ void DrawPath(int margin, int cellSize) {
             Int2* p = &path[i];
             float rotation = GetArrowRotation(path, pathLen, i, g_goal);
             float alpha = 0.1f;
-            float dif = fabsf(time - i);
+            float dif = (float)fabs(time - (double)i);
             if (dif < 1.5f) {
                 dif = dif / 1.5f;
-                alpha = sin((1.0f - dif) * PI/2.0f) * 0.9f + 0.1f;
+                alpha = sinf((1.0f - dif) * PI/2.0f) * 0.9f + 0.1f;
             }
 
             DrawTexturePro(
                 g_arrow,
-                (Rectangle) {
-                0, 0, (float)g_arrow.width, (float)g_arrow.height
-            },
-                (Rectangle) {
-                margin + (cellSize * p->x) + cellSize * 0.5f, margin + (cellSize * p->y) + cellSize * 0.5f, cellSize * 0.5f, cellSize * 0.5f
-            },
-                (Vector2) {
-                cellSize * 0.25f, cellSize * 0.25f
-            },
+                (Rectangle) { 0, 0, (float)g_arrow.width, (float)g_arrow.height },
+                (Rectangle) { margin + (cellSize * p->x) + cellSize * 0.5f, margin + (cellSize * p->y) + cellSize * 0.5f, cellSize * 0.5f, cellSize * 0.5f },
+                (Vector2)   { cellSize * 0.25f, cellSize * 0.25f },
                 rotation,
                 ColorAlpha(WHITE, alpha));
         }
@@ -158,18 +146,18 @@ void DrawGridRectangle(Int2 pos, int margin, int cellSize, bool scaleAnim, float
     
     float scale = 1.0f;
     if (scaleAnim)
-        scale = 1.0f + sin(GetTime()) * 0.1f;
+        scale = 1.0f + (float)sin(GetTime()) * 0.1f;
 
-    rlTranslatef(margin + (cellSize * pos.x) + cellSize * 0.5f + 2, margin + (cellSize * pos.y) + cellSize * 0.5f + 2, 0);
+    rlTranslatef(margin + (cellSize * pos.x) + cellSize * 0.5f + 2.0f, margin + (cellSize * pos.y) + cellSize * 0.5f + 2.0f, 0);
     rlScalef(scale, scale, 1.0f);
 
     Rectangle rectBG = { -cellSize * 0.5f+4, -cellSize * 0.5f+4, (float)(cellSize - 9), (float)(cellSize - 9) };
     DrawRectangleRounded(rectBG, 0.5f, 4, GRAY);
 
-    Rectangle rectFG1 = { -cellSize*0.5f, -cellSize*0.5f, cellSize - 7, cellSize - 7 };
+    Rectangle rectFG1 = { -cellSize*0.5f, -cellSize*0.5f, cellSize - 7.0f, cellSize - 7.0f };
     DrawRectangleRounded(rectFG1, 0.5f, 4, ColorFromHSV(hue, saturation, 1.0f));
 
-    Rectangle rectFG2 = { -cellSize*0.5f+4, -cellSize*0.5f+4, cellSize - 15, cellSize - 15 };
+    Rectangle rectFG2 = { -cellSize*0.5f+4.0f, -cellSize*0.5f+4.0f, cellSize - 15.0f, cellSize - 15.0f };
     DrawRectangleRounded(rectFG2, 0.5f, 4, ColorFromHSV(hue, saturation, 0.8f));
 
     rlPopMatrix();
@@ -195,16 +183,23 @@ void Draw() {
         yOffset += cellSize;
     }
 
-    if (Int2IsValid(g_start))
+    bool startValid = Int2IsValid(g_start);
+    bool goalValid  = Int2IsValid(g_goal);
+    if (startValid)
         DrawGridRectangle(g_start, margin, cellSize, true, 0.0f, 1.0f);
 
-    if (Int2IsValid(g_goal))
+    if (goalValid)
         DrawGridRectangle(g_goal, margin, cellSize, true, 120.0f, 1.0f);
 
     for (int row = 0; row < g_gridRows; row++) {
         for (int col = 0; col < g_gridCols; col++) {
-            if (AStarGet(col, row))
+            if (AStarIsBlocked(col, row))
                 DrawGridRectangle((Int2){col, row}, margin, cellSize, false, 0.0f, 0.0f);
+            else if (AStarIsVisited(col, row)) {
+                if (startValid && goalValid)
+                    DrawRectangle(margin + 1 + col*cellSize, margin + 1 + row * cellSize ,cellSize -1, cellSize-1, (Color){40, 240, 40, 20});
+            }
+
         }
     }
 
@@ -212,7 +207,7 @@ void Draw() {
 }
 
 void main() {
-    AStarInit(g_gridCols, g_gridRows);
+    AStarInit(g_gridCols, g_gridRows, EIGHT_SIDES);
 
     SetConfigFlags(FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
     InitWindow(1280, 720, "AStar");
