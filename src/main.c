@@ -7,14 +7,23 @@
 #include "astar.h"
 
 enum CellAction_t { NONE, BLOCK, UNBLOCK };
-int g_gridCols = 19;
-int g_gridRows = 10;
+int g_gridCols = 19*3;
+int g_gridRows = 10*3;
 Int2 g_start   = { -1, -1 };
 Int2 g_goal    = { -1, -1 };
 enum CellAction_t g_cellAction = NONE;
 Texture2D g_arrow;
 
-Int2 GetCellID(Int2 screenPos) {
+#include <time.h>
+
+static double Now()
+{
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    return now.tv_sec + now.tv_nsec * 1e-9;
+}
+
+static Int2 GetCellID(Int2 screenPos) {
     Int2 cell = { -1, -1 };
 
     int minScreenSize = min(GetScreenWidth(), GetScreenHeight());
@@ -98,13 +107,20 @@ void Update() {
                 }
             }
         }
-
-        if (Int2IsValid(g_start) && Int2IsValid(g_goal))
-            AStarSearch(g_start, g_goal);
     }
 
-    if (IsMouseButtonUp(MOUSE_BUTTON_LEFT))
+    if (IsMouseButtonUp(MOUSE_BUTTON_LEFT)) {
         g_cellAction = NONE;
+    }
+
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        if (Int2IsValid(g_start) && Int2IsValid(g_goal)) {
+            double timeStart = Now();
+            AStarSearch(g_start, g_goal);
+            double timeEnd = Now();
+            printf("A* time=%.3f\n", timeEnd - timeStart);
+        }
+    }
 }
 
 void DrawPath(int margin, int cellSize) {
@@ -123,11 +139,11 @@ void DrawPath(int margin, int cellSize) {
         for (int i = 0; i < pathLen; i++) {
             Int2* p = &path[i];
             float rotation = GetArrowRotation(path, pathLen, i, g_goal);
-            float alpha = 0.1f;
+            float alpha = 0.2f;
             float dif = (float)fabs(time - (double)i);
             if (dif < 1.5f) {
                 dif = dif / 1.5f;
-                alpha = sinf((1.0f - dif) * PI/2.0f) * 0.9f + 0.1f;
+                alpha = sinf((1.0f - dif) * PI/2.0f) * (1.0f - alpha) + alpha;
             }
 
             DrawTexturePro(
@@ -197,13 +213,69 @@ void Draw() {
                 DrawGridRectangle((Int2){col, row}, margin, cellSize, false, 0.0f, 0.0f);
             else if (AStarIsVisited(col, row)) {
                 if (startValid && goalValid)
-                    DrawRectangle(margin + 1 + col*cellSize, margin + 1 + row * cellSize ,cellSize -1, cellSize-1, (Color){40, 240, 40, 20});
+                    DrawRectangle(margin + 1 + col*cellSize, margin + 1 + row * cellSize ,cellSize -1, cellSize-1, (Color){40, 240, 40, 30});
             }
-
         }
     }
 
     DrawPath(margin, cellSize);
+}
+
+static void SaveGrid() {
+    printf("Saving grid...\n");
+
+    FILE* fp = fopen("grid.bin", "wb");
+
+    fwrite(&g_gridCols, 1, sizeof(int), fp);
+    fwrite(&g_gridRows, 1, sizeof(int), fp);
+    fwrite(&g_start, 1, sizeof(Int2), fp);
+    fwrite(&g_goal, 1, sizeof(Int2), fp);
+    for (int row = 0; row < g_gridRows; row++) {
+        for (int col = 0; col < g_gridCols; col++) {
+            bool blocked = AStarIsBlocked(col, row);
+            fwrite(&blocked, 1, sizeof(bool), fp);
+        }
+    }
+
+    fclose(fp);
+
+    printf("Grid saved\n");
+}
+
+static void LoadGrid() {
+    printf("Loading grid...\n");
+
+    FILE* fp = fopen("grid.bin", "rb");
+
+    if (fp == NULL) {
+        printf("[Error]: File not found\n");
+        return;
+    }
+
+    int cols, rows;
+    fread(&cols, 1, sizeof(int), fp);
+    fread(&rows, 1, sizeof(int), fp);
+    if ((cols == g_gridCols) && (rows == g_gridRows)) {
+        fread(&g_start, 1, sizeof(Int2), fp);
+        fread(&g_goal, 1, sizeof(Int2), fp);
+        for (int row = 0; row < g_gridRows; row++) {
+            for (int col = 0; col < g_gridCols; col++) {
+                bool blocked = false;
+                fread(&blocked, 1, sizeof(bool), fp);
+                AStarSetBlocked(col, row, blocked);
+            }
+        }
+
+        if (Int2IsValid(g_start) && Int2IsValid(g_goal))
+            AStarSearch(g_start, g_goal);
+
+        printf("Grid loaded\n");
+    }
+    else {
+        printf("[Error]: Different grid size\n");
+    }
+
+    fclose(fp);
 }
 
 void main() {
@@ -213,6 +285,8 @@ void main() {
     InitWindow(1280, 720, "AStar");
 
     g_arrow = LoadTexture("resources/white-arrow.png");
+
+    LoadGrid();
 
     while (!WindowShouldClose()) {
         Update();
@@ -226,6 +300,9 @@ void main() {
 
         EndDrawing();
     }
+
+    SaveGrid();
+
     CloseWindow();
     AStarDestroy();
 }

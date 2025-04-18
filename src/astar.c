@@ -78,7 +78,8 @@ static void ListNodeInsertSorted(Node** list, Node* node) {
 }
 
 static int ListNodeGetPosIndex(Node* list, Int2 pos) {
-    for (int i = 0; i < arrlen(list); i++) {
+    int len = arrlen(list);
+    for (int i = 0; i < len; i++) {
         if (Int2Equals(list[i].pos, pos))
             return i;
     }
