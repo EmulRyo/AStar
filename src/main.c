@@ -19,7 +19,8 @@ Texture2D g_arrow;
 static double Now()
 {
     struct timespec now;
-    timespec_get(&now, TIME_UTC);
+    if (!timespec_get(&now, TIME_UTC))
+        printf("Error: timespec_get failed\n");
     return now.tv_sec + now.tv_nsec * 1e-9;
 }
 
@@ -57,13 +58,13 @@ static float GetArrowRotation(Int2* path, size_t pathLen, int i, Int2 goal) {
         dir = Int2Sub(goal, *p);
     }
     
-    rotation = atan2f(dir.y, dir.x);
+    rotation = atan2f((float)dir.y, (float)dir.x);
     rotation = rotation * 180.0f / PI;
 
     return rotation;
 }
 
-void Update() {
+static void Update() {
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
 
         Int2 cell = GetCellID((Int2){ GetMouseX(), GetMouseY() });
@@ -123,7 +124,7 @@ void Update() {
     }
 }
 
-void DrawPath(int margin, int cellSize) {
+static void DrawPath(int margin, int cellSize) {
     if (Int2IsValid(g_start) && Int2IsValid(g_goal)) {
         Int2* path = NULL;
         size_t pathLen = 0;
@@ -157,7 +158,7 @@ void DrawPath(int margin, int cellSize) {
     }
 }
 
-void DrawGridRectangle(Int2 pos, int margin, int cellSize, bool scaleAnim, float hue, float saturation) {
+static void DrawGridRectangle(Int2 pos, int margin, int cellSize, bool scaleAnim, float hue, float saturation) {
     rlPushMatrix();
     
     float scale = 1.0f;
@@ -179,7 +180,7 @@ void DrawGridRectangle(Int2 pos, int margin, int cellSize, bool scaleAnim, float
     rlPopMatrix();
 }
 
-void Draw() {
+static void Draw() {
     int minScreenSize = min(GetScreenWidth(), GetScreenHeight());
     int margin = (int)(minScreenSize *0.05f);
     int gridSize = minScreenSize - (2 * margin);

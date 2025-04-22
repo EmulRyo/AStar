@@ -131,10 +131,12 @@
     <ClCompile Include="src\astar.c" />
     <ClCompile Include="src\int2.c" />
     <ClCompile Include="src\main.c" />
+    <ClCompile Include="src\priorityQueue.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\astar.h" />
     <ClInclude Include="src\int2.h" />
+    <ClInclude Include="src\priorityQueue.h" />
     <ClInclude Include="src\stb_ds.h" />
   </ItemGroup>
   <ItemGroup>

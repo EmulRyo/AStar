@@ -4,6 +4,7 @@
 #include <raylib.h>
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
+#include "priorityQueue.h"
 #include "astar.h"
 
 typedef struct Node {
@@ -63,25 +64,12 @@ static Node* GridNodeGet(Int2 pos) {
     return &(g_grid.cells[offset]);
 }
 
-static void ListNodeInsertSorted(Node** list, Node* node) {
-    ptrdiff_t id = 0;
-    ptrdiff_t len = arrlen(*list);
-    for (ptrdiff_t i = len-1; i >= 0; i--) {
-        if (node->f <= (*list)[i].f) {
-            id = i + 1;
-            break;
-        }
-    }
-
-    Node n = *node;
-    arrins(*list, id, n);
-}
-
-static int ListNodeGetPosIndex(Node* list, Int2 pos) {
-    int len = arrlen(list);
-    for (int i = 0; i < len; i++) {
-        if (Int2Equals(list[i].pos, pos))
-            return i;
+static int PQ_FindPos(PriorityQueue pq, Int2 pos) {
+    size_t len = PQ_NumElements(pq);
+    for (size_t i = 0; i < len; i++) {
+        const Node* n = (const Node*)PQ_GetElement(pq, i);
+        if (n && Int2Equals(n->pos, pos))
+            return (int)i;
     }
     return -1;
 }
@@ -153,9 +141,20 @@ bool AStarIsVisited(size_t x, size_t y) {
     return g_grid.cells[offset].visited;
 }
 
+static int CompareNodes(const void* a, const void* b) {
+    Node* n1 = (Node*)a;
+    Node* n2 = (Node*)b;
+    if (n1->f > n2->f)
+        return 1;
+    else if (n1->f == n2->f)
+        return 0;
+    else
+        return -1;
+}
+
 // A* finds a path from start to goal.
 bool AStarSearch(Int2 start, Int2 goal) {
-    Node* openSet = NULL;
+    PriorityQueue openSet = PQ_Create(32, sizeof(Node), CompareNodes);
 
     float (*hFunCB) (Int2, Int2) = g_navMode == FOUR_SIDES ? ManhattanDistance : DiagonalDistance;
 
@@ -170,11 +169,10 @@ bool AStarSearch(Int2 start, Int2 goal) {
     nStart.g = 0.0f;
     nStart.h = hFunCB(start, goal);
     nStart.f = nStart.g + nStart.h;
-    arrput(openSet, nStart);
+    PQ_Push(openSet, &nStart);
 
-    while (arrlen(openSet) > 0) {
-        Node q = arrpop(openSet);
-
+    Node q;
+    while (PQ_Pop(openSet, &q)) {
         Int2 s[8] = {
             Int2AddS(q.pos,  1,  0),
             Int2AddS(q.pos,  0,  1),
@@ -198,6 +196,7 @@ bool AStarSearch(Int2 start, Int2 goal) {
                 q3->pos = s[i];
                 q3->parent = q.pos;
                 TracePath(start, goal);
+                PQ_Destroy(openSet);
                 return true;
             }
 
@@ -216,15 +215,18 @@ bool AStarSearch(Int2 start, Int2 goal) {
                 n.f = n.g + n.h;
 
                 int id = -1;
-                id = ListNodeGetPosIndex(openSet, s[i]);
-                if ((id >= 0) && (openSet[id].f <= n.f))
-                    continue;
+                id = PQ_FindPos(openSet, s[i]);
+                if (id >= 0) {
+                    const Node* n2 = PQ_GetElement(openSet, id);
+                    if (n2->f <= n.f)
+                        continue;
+                }
 
                 Node* q2 = GridNodeGet(s[i]);
                 if (q2->f <= n.f)
                     continue;
 
-                ListNodeInsertSorted(&openSet, &n);
+                PQ_Push(openSet, &n);
             }
         }
 
@@ -232,6 +234,8 @@ bool AStarSearch(Int2 start, Int2 goal) {
         if (q.f < q3->f)
             *q3 = q;
     }
+
+    PQ_Destroy(openSet);
 
     // Open set is empty but goal was never reached
     return false;
