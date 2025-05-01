@@ -124,6 +124,7 @@ void AStarInit(size_t width, size_t height, enum NavigationMode navMode) {
 void AStarDestroy() {
     if (g_grid.cells != NULL)
         free(g_grid.cells);
+    g_grid.cells = NULL;
 }
 
 void AStarSetBlocked(size_t x, size_t y, bool blocked) {

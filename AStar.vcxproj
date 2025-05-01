@@ -137,6 +137,7 @@
     <ClInclude Include="src\astar.h" />
     <ClInclude Include="src\int2.h" />
     <ClInclude Include="src\priorityQueue.h" />
+    <ClInclude Include="src\raygui.h" />
     <ClInclude Include="src\stb_ds.h" />
   </ItemGroup>
   <ItemGroup>
