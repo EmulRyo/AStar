@@ -213,7 +213,7 @@ static void DrawGUI(Rectangle boundary) {
     DrawText("Direction:", (int)offsetX, 10, 20, WHITE);
     offsetX += 100;
     //static int activeNavMode = 0;
-    if (GuiDropdownBox((Rectangle) { offsetX, boundary.y + 10.0f, 100.0f, 20.0f }, "Four;Eight", &g_gridNavMode, g_editModeNavMode))
+    if (GuiDropdownBox((Rectangle) { offsetX, boundary.y + 10.0f, 100.0f, 20.0f }, "Four;Eight", (int *)&g_gridNavMode, g_editModeNavMode))
         g_editModeNavMode = !g_editModeNavMode;
     //g_gridNavMode = activeNavMode == 0 ? FOUR_SIDES : EIGHT_SIDES;
 
@@ -419,7 +419,7 @@ static void LoadGrid() {
 void main() {
     g_gridColsOld = g_gridCols;
     g_gridRowsOld = g_gridRows;
-    AStarInit(g_gridCols, g_gridRows, EIGHT_SIDES);
+    AStarInit(g_gridCols, g_gridRows, FOUR_SIDES);
 
     SetConfigFlags(FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
     InitWindow(1280, 720, "A*");
