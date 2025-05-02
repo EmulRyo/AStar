@@ -419,7 +419,7 @@ static void LoadGrid() {
 void main() {
     g_gridColsOld = g_gridCols;
     g_gridRowsOld = g_gridRows;
-    AStarInit(g_gridCols, g_gridRows, FOUR_SIDES);
+    AStarInit(g_gridCols, g_gridRows, g_gridNavMode);
 
     SetConfigFlags(FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
     InitWindow(1280, 720, "A*");
