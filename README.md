@@ -20,3 +20,5 @@ git clone https://github.com/EmulRyo/AStar.git
 cd AStar
 cmake -B build && cmake --build build
 ```
+## 📸Images
+![](imgs/AStar.gif)
