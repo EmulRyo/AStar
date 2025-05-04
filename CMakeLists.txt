@@ -25,13 +25,14 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(SRC
     src/astar.c
     src/astar.h
+    src/dynamicArray.c
+    src/dynamicArray.h
     src/int2.c
     src/int2.h
     src/main.c
     src/priorityQueue.c
     src/priorityQueue.h
     src/raygui.h
-    src/stb_ds.h
 )
 source_group(src   FILES ${SRC})
 

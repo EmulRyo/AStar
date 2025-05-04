@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <float.h>
 #include <math.h>
+#include <stdlib.h>
 #include <raylib.h>
-#define STB_DS_IMPLEMENTATION
-#include "stb_ds.h"
+#include "dynamicArray.h"
 #include "priorityQueue.h"
 #include "astar.h"
 
@@ -23,7 +23,7 @@ typedef struct Grid {
 } Grid;
 
 static Grid g_grid = { .cells=NULL, .rows=0, .cols=0 };
-static Int2* g_path = NULL;
+static DynamicArray g_path = NULL;
 static enum NavigationMode g_navMode = FOUR_SIDES;
 
 static Node NodeNew(int value) {
@@ -97,7 +97,7 @@ static float DiagonalDistance(Int2 a, Int2 b) {
     int dx = abs(a.x - b.x);
     int dy = abs(a.y - b.y);
 
-    return D * (dx + dy) + (D2 - 2 * D) * min(dx, dy);
+    return D * (dx + dy) + (D2 - 2 * D) * fminf(dx, dy);
 }
 
 static void TracePath(Int2 src, Int2 dst) {
@@ -105,9 +105,11 @@ static void TracePath(Int2 src, Int2 dst) {
     n = GridNodeGet(n->parent);
 
     while (!Int2Equals(n->pos, src)) {
-        arrins(g_path, 0, n->pos);
+        DA_Add(g_path, &n->pos);
         n = GridNodeGet(n->parent);
     };
+
+    DA_Reverse(g_path);
 }
 
 void AStarInit(size_t width, size_t height, enum NavigationMode navMode) {
@@ -161,9 +163,11 @@ bool AStarSearch(Int2 start, Int2 goal) {
 
     GridReset(false);
     if (g_path != NULL) {
-        arrfree(g_path);
+        DA_Destroy(g_path);
         g_path = NULL;
     }
+
+    g_path = DA_Create(32, sizeof(Int2));
 
     Node nStart = NodeNew(-1);
     nStart.pos = start;
@@ -243,6 +247,6 @@ bool AStarSearch(Int2 start, Int2 goal) {
 }
 
 void AStarPath(Int2** path, size_t* pathLen) {
-    *path = g_path;
-    *pathLen = arrlenu(g_path);
+    *path = DA_Get(g_path, 0);
+    *pathLen = DA_Count(g_path);
 }

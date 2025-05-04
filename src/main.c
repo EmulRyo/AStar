@@ -212,10 +212,9 @@ static void DrawGUI(Rectangle boundary) {
 
     DrawText("Direction:", (int)offsetX, 10, 20, WHITE);
     offsetX += 100;
-    //static int activeNavMode = 0;
+
     if (GuiDropdownBox((Rectangle) { offsetX, boundary.y + 10.0f, 100.0f, 20.0f }, "Four;Eight", (int *)&g_gridNavMode, g_editModeNavMode))
         g_editModeNavMode = !g_editModeNavMode;
-    //g_gridNavMode = activeNavMode == 0 ? FOUR_SIDES : EIGHT_SIDES;
 
     const char* t = TextFormat("FPS: %d", GetFPS());
     DrawText(t, (int)(boundary.width - 100.0f - 10.0f), (int)(boundary.y + 10.0f), 20, WHITE);
