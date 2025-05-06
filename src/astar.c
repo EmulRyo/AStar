@@ -247,6 +247,6 @@ bool AStarSearch(Int2 start, Int2 goal) {
 }
 
 void AStarPath(Int2** path, size_t* pathLen) {
-    *path = DA_Get(g_path, 0);
     *pathLen = DA_Count(g_path);
+    *path = *pathLen > 0 ? DA_Get(g_path, 0) : NULL;
 }
