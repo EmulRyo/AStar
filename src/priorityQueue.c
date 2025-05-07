@@ -7,9 +7,9 @@
 #include "priorityQueue.h"
 
 typedef struct PriorityQueueInstance {
-    size_t numElems;
-    size_t elemSize;
+    size_t count;
     size_t capacity;
+    size_t elemSize;
     void*  data;
     PQ_CompareFunCB cmpFunCB;
 } PriorityQueueInstance;
@@ -39,14 +39,14 @@ PriorityQueue PQ_Create(size_t initialCapacity, size_t elementSize, PQ_CompareFu
 	inst->capacity = initialCapacity;
     inst->elemSize = elementSize;
     inst->data     = malloc(initialCapacity * elementSize);
-    inst->numElems = 0;
+    inst->count = 0;
     inst->cmpFunCB = compareFunCB;
 
 	return inst;
 }
 
 void PQ_Push(PriorityQueue pq, const void* newElement) {
-    if (pq->numElems == (pq->capacity-1)) {
+    if (pq->count == (pq->capacity-1)) {
         void* newPtr = realloc(pq->data, pq->capacity*pq->elemSize*2);
         if (newPtr == NULL) {
             printf("Error: unable to allocate memory. Aborting\n");
@@ -59,11 +59,11 @@ void PQ_Push(PriorityQueue pq, const void* newElement) {
         }
     }
 
-    if (pq->numElems == 0) {
+    if (pq->count == 0) {
         memcpy((char *)pq->data + pq->elemSize, newElement, pq->elemSize); // The first element is stored on pos 1
     }
     else {
-        size_t pos = pq->numElems+1;
+        size_t pos = pq->count+1;
         void* element = (char*)pq->data + (pos * pq->elemSize);
         memcpy(element, newElement, pq->elemSize);
         while (true) {
@@ -82,11 +82,11 @@ void PQ_Push(PriorityQueue pq, const void* newElement) {
             }
         }
     }
-    pq->numElems++;
+    pq->count++;
 }
 
 bool PQ_Pop(PriorityQueue pq, void* element) {
-    if (pq->numElems == 0)
+    if (pq->count == 0)
         return false;
 
     // Copy element to return
@@ -94,9 +94,9 @@ bool PQ_Pop(PriorityQueue pq, void* element) {
     memcpy(element, parent, pq->elemSize);
 
     // Replace root with last element
-    void* last = (char*)pq->data + pq->numElems*pq->elemSize;
+    void* last = (char*)pq->data + pq->count*pq->elemSize;
     memcpy(parent, last, pq->elemSize);
-    pq->numElems--;
+    pq->count--;
     size_t pos = 1;
 
     while (true) {
@@ -106,10 +106,10 @@ bool PQ_Pop(PriorityQueue pq, void* element) {
         void* child1 = NULL;
         void* child2 = NULL;
 
-        if (child1Pos <= pq->numElems)
+        if (child1Pos <= pq->count)
             child1 = (char*)pq->data + (child1Pos * pq->elemSize);
 
-        if (child2Pos <= pq->numElems)
+        if (child2Pos <= pq->count)
             child2 = (char*)pq->data + (child2Pos * pq->elemSize);
         
         if (!child1 && !child2)
@@ -141,19 +141,27 @@ void PQ_Destroy(PriorityQueue pq) {
 	pq = NULL;
 }
 
-size_t PQ_NumElements(PriorityQueue pq) {
-    return pq->numElems;
+size_t PQ_Count(PriorityQueue pq) {
+    return pq->count;
 }
 
-const void* PQ_GetElement(PriorityQueue pq, size_t elementID) {
-    if (elementID >= pq->numElems)
+size_t PQ_Capacity(PriorityQueue pq) {
+    return pq->capacity;
+}
+
+void PQ_Clear(PriorityQueue pq) {
+    pq->count = 0;
+}
+
+const void* PQ_Get(PriorityQueue pq, size_t elementID) {
+    if (elementID >= pq->count)
         return NULL;
 
     return (char*)pq->data + (elementID + 1) * pq->elemSize;
 }
 
 void PQ_Traverse(PriorityQueue pq, void (*funCB)(const void*)) {
-    for (size_t i = 0; i < pq->numElems; i++) {
+    for (size_t i = 0; i < pq->count; i++) {
         funCB((char *)pq->data + (i+1) * pq->elemSize);
     }
 }
