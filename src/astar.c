@@ -12,8 +12,7 @@ typedef struct Node {
     Int2 parent;
     bool blocked;
     bool visited;
-    // f = g + h
-    float f, g, h;
+    float f, g, h; // f = g + h
 } Node;
 
 typedef struct Grid {
@@ -65,9 +64,9 @@ static Node* GridNodeGet(Int2 pos) {
 }
 
 static int PQ_FindPos(PriorityQueue pq, Int2 pos) {
-    size_t len = PQ_NumElements(pq);
+    size_t len = PQ_Count(pq);
     for (size_t i = 0; i < len; i++) {
-        const Node* n = (const Node*)PQ_GetElement(pq, i);
+        const Node* n = (const Node*)PQ_Get(pq, i);
         if (n && Int2Equals(n->pos, pos))
             return (int)i;
     }
@@ -169,6 +168,7 @@ bool AStarSearch(Int2 start, Int2 goal) {
 
     g_path = DA_Create(32, sizeof(Int2));
 
+    // Start node
     Node nStart = NodeNew(-1);
     nStart.pos = start;
     nStart.g = 0.0f;
@@ -177,7 +177,7 @@ bool AStarSearch(Int2 start, Int2 goal) {
     PQ_Push(openSet, &nStart);
 
     Node q;
-    while (PQ_Pop(openSet, &q)) {
+    while (PQ_Pop(openSet, &q)) {              // Pop node with lowest f
         Int2 s[8] = {
             Int2AddS(q.pos,  1,  0),
             Int2AddS(q.pos,  0,  1),
@@ -193,8 +193,8 @@ bool AStarSearch(Int2 start, Int2 goal) {
             s[7] = Int2AddS(q.pos, -1, -1);
         }
 
-        for (int i = 0; i < numSides; i++) {
-            if (Int2Equals(s[i], goal)) {
+        for (int i = 0; i < numSides; i++) {   // Go through all the sides
+            if (Int2Equals(s[i], goal)) {      // If we reached goal, finish algorithm
                 Node* q2 = GridNodeGet(q.pos);
                 *q2 = q;
                 Node* q3 = GridNodeGet(s[i]);
@@ -205,13 +205,13 @@ bool AStarSearch(Int2 start, Int2 goal) {
                 return true;
             }
 
-            if (PosIsValid(s[i])) {
+            if (PosIsValid(s[i])) {            // If cell is inside boundaries and not blocked
                 Node n = { 0 };
                 n.pos = s[i];
                 n.parent = q.pos;
                 n.visited = true;
 
-                float cost = 1.0f;
+                float cost = 1.0f;             // Horiz and vert movs cost 1, diagonal ones cost sqrt(2)
                 if ((n.parent.x != n.pos.x) && (n.parent.y != n.pos.y))
                     cost = sqrtf(2.0f);
 
@@ -222,21 +222,21 @@ bool AStarSearch(Int2 start, Int2 goal) {
                 int id = -1;
                 id = PQ_FindPos(openSet, s[i]);
                 if (id >= 0) {
-                    const Node* n2 = PQ_GetElement(openSet, id);
-                    if (n2->f <= n.f)
+                    const Node* n2 = PQ_Get(openSet, id);
+                    if (n2->f <= n.f)          // If already exists this cell on the prioriry queue with less f, skip this one
                         continue;
                 }
 
                 Node* q2 = GridNodeGet(s[i]);
-                if (q2->f <= n.f)
+                if (q2->f <= n.f)              // If already exists this cell on the grid with less f, skip this one
                     continue;
 
-                PQ_Push(openSet, &n);
+                PQ_Push(openSet, &n);          // Push node to the priority queue
             }
         }
 
         Node* q3 = GridNodeGet(q.pos);
-        if (q.f < q3->f)
+        if (q.f < q3->f)                       // If current node is better than the stored on the grid
             *q3 = q;
     }
 

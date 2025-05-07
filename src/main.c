@@ -83,8 +83,8 @@ static float GetArrowRotation(Int2* path, size_t pathLen, int i, Int2 goal) {
 }
 
 static void GridResize() {
+    // Store blocked cells
     bool* blockCells = malloc(g_gridRowsOld * g_gridColsOld * sizeof(bool));
-
     for (int row = 0; row < g_gridRowsOld; row++) {
         for (int col = 0; col < g_gridColsOld; col++) {
             bool blocked = AStarIsBlocked(col, row);
@@ -94,8 +94,8 @@ static void GridResize() {
 
     AStarDestroy();
 
+    // Config a new A Star and set blocked cells
     AStarInit(g_gridCols, g_gridRows, g_gridNavMode);
-    
     for (int row = 0; row < g_gridRows; row++) {
         for (int col = 0; col < g_gridCols; col++) {
             if ((col < g_gridColsOld) && (row < g_gridRowsOld)) {
@@ -105,11 +105,15 @@ static void GridResize() {
         }
     }
 
+    free(blockCells);
+
+    // Check if start remains valid
     if ((g_start.x >= g_gridCols) || (g_start.y >= g_gridRows)) {
         g_start.x = -1;
         g_start.y = -1;
     }
 
+    // Check if goal remains valid
     if ((g_goal.x >= g_gridCols) || (g_goal.y >= g_gridRows)) {
         g_goal.x = -1;
         g_goal.y = -1;
@@ -117,13 +121,50 @@ static void GridResize() {
 
     if (Int2IsValid(g_start) && Int2IsValid(g_goal))
         AStarSearch(g_start, g_goal);
+}
 
-    free(blockCells);
+static void MouseLeftPressed(Int2 cell) {
+    bool modified = false;
+
+    // Set start
+    if (!Int2IsValid(g_start)) {
+        g_start = cell;
+        AStarSetBlocked(cell.x, cell.y, false);
+        modified = true;
+    }
+
+    //Set goal
+    if (!modified && !Int2IsValid(g_goal) && (!Int2Equals(cell, g_start))) {
+        g_goal = cell;
+        AStarSetBlocked(cell.x, cell.y, false);
+        modified = true;
+    }
+
+    // Reset start
+    if (!modified && Int2Equals(g_start, cell)) {
+        g_start = (Int2){ -1, -1 };
+        modified = true;
+    }
+
+    // Reset goal
+    if (!modified && Int2Equals(g_goal, cell)) {
+        g_goal = (Int2){ -1, -1 };
+        modified = true;
+    }
+
+    // Set / Reset block
+    if (!modified) {
+        bool blocked = AStarIsBlocked(cell.x, cell.y);
+        g_cellAction = blocked ? UNBLOCK : BLOCK;
+        AStarSetBlocked(cell.x, cell.y, !blocked);
+        modified = true;
+    }
 }
 
 static void Update() {
     g_gridBoundary = (Rectangle){ 20.0f, 50.0f, GetScreenWidth() - 40.0f, GetScreenHeight() - 70.0f };
 
+    // If user changed rows or cols, resize grid
     if ((g_gridColsOld != g_gridCols) || (g_gridRowsOld != g_gridRows) || (g_gridNavModeOld != g_gridNavMode)) {
         GridResize();
         g_gridColsOld = g_gridCols;
@@ -131,6 +172,7 @@ static void Update() {
         g_gridNavModeOld = g_gridNavMode;
     }
 
+    // Disable input if modifying gui control
     bool gridEnabled = !g_editModeNavMode;
     if (!gridEnabled)
         return;
@@ -139,39 +181,12 @@ static void Update() {
         Int2 cell = GetCellID((Int2){ GetMouseX(), GetMouseY() }, g_gridBoundary);
 
         if (Int2IsValid(cell)) {
-            bool modified = false;
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                if (!Int2IsValid(g_start)) {
-                    g_start = cell;
-                    AStarSetBlocked(cell.x, cell.y, false);
-                    modified = true;
-                }
-
-                if (!modified && !Int2IsValid(g_goal) && (!Int2Equals(cell, g_start))) {
-                    g_goal = cell;
-                    AStarSetBlocked(cell.x, cell.y, false);
-                    modified = true;
-                }
-
-                if (!modified && Int2Equals(g_start, cell)) {
-                    g_start = (Int2){ -1, -1 };
-                    modified = true;
-                }
-
-                if (!modified && Int2Equals(g_goal, cell)) {
-                    g_goal = (Int2){ -1, -1 };
-                    modified = true;
-                }
-
-                if (!modified) {
-                    bool blocked = AStarIsBlocked(cell.x, cell.y);
-                    g_cellAction = blocked ? UNBLOCK : BLOCK;
-                    AStarSetBlocked(cell.x, cell.y, !blocked);
-                    modified = true;
-                }
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { // Pressed on this frame
+                MouseLeftPressed(cell);
             }
-            else {
+            else {                                         // Pressed on previous frames
                 if (g_cellAction != NONE) {
+                    // Quick blocking/unblocking without releasing the mouse button
                     bool blocked = g_cellAction == BLOCK ? true : false;
                     AStarSetBlocked(cell.x, cell.y, blocked);
                 }
@@ -183,6 +198,7 @@ static void Update() {
         g_cellAction = NONE;
     }
 
+    // On mouse released, if start and goal valid, run A* algorithm
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
         Int2 cell = GetCellID((Int2) { GetMouseX(), GetMouseY() }, g_gridBoundary);
         if (Int2IsValid(g_start) && Int2IsValid(g_goal) && Int2IsValid(cell))
@@ -191,7 +207,7 @@ static void Update() {
 }
 
 static void DrawGUI(Rectangle boundary) {
-
+    // Background
     DrawRectangleRec(boundary, ColorAlpha(WHITE, 0.15f));
 
     float offsetX = boundary.x + 30.0f;
@@ -202,10 +218,12 @@ static void DrawGUI(Rectangle boundary) {
     static bool editModeWidth = false;
     static bool editModeHeight = false;
 
+    // Grid columns
     if (GuiSpinner((Rectangle) { offsetX, boundary.y + 10.0f, 100.0f, 20.0f }, "", &g_gridCols, 5, 160, editModeWidth))
         editModeWidth = !editModeWidth;
     offsetX += 100.0f + 5.0f;
 
+    // Grid rows
     if (GuiSpinner((Rectangle) { offsetX, boundary.y + 10.0f, 100.0f, 20.0f }, "", &g_gridRows, 5, 100, editModeHeight))
         editModeHeight = !editModeHeight;
     offsetX += 100.0f + 20.0f;
@@ -213,6 +231,7 @@ static void DrawGUI(Rectangle boundary) {
     DrawText("Direction:", (int)offsetX, 10, 20, WHITE);
     offsetX += 100;
 
+    // Navigation mode
     if (GuiDropdownBox((Rectangle) { offsetX, boundary.y + 10.0f, 100.0f, 20.0f }, "Four;Eight", (int *)&g_gridNavMode, g_editModeNavMode))
         g_editModeNavMode = !g_editModeNavMode;
 
@@ -269,12 +288,15 @@ static void DrawGridRectangle(Int2 pos, Vector2 gridStart, float cellSize, bool 
     rlTranslatef(gridStart.x + (cellSize * pos.x) + cellSize * 0.5f + 2.0f, gridStart.y + (cellSize * pos.y) + cellSize * 0.5f + 2.0f, 0);
     rlScalef(scale, scale, 1.0f);
 
+    // Shadow
     Rectangle rectBG = { -cellSize * 0.5f+4, -cellSize * 0.5f+4, (float)(cellSize - 9), (float)(cellSize - 9) };
     DrawRectangleRounded(rectBG, 0.5f, 4, GRAY);
 
+    // Exterior color
     Rectangle rectFG1 = { -cellSize*0.5f, -cellSize*0.5f, cellSize - 7.0f, cellSize - 7.0f };
     DrawRectangleRounded(rectFG1, 0.5f, 4, ColorFromHSV(hue, saturation, 1.0f));
 
+    // Interior color
     Rectangle rectFG2 = { -cellSize*0.5f+4.0f, -cellSize*0.5f+4.0f, cellSize - 15.0f, cellSize - 15.0f };
     DrawRectangleRounded(rectFG2, 0.5f, 4, ColorFromHSV(hue, saturation, 0.8f));
 
@@ -305,18 +327,21 @@ static void DrawGridAStar(Rectangle boundary) {
     float alpha = InvLerpClamp01(8, 20, cellSize);
     alpha = alpha * 0.7f + 0.3f;
 
+    // Vertical lines
     float xOffset = gridStart.x;
     for (int col = 0; col < g_gridCols + 1; col++) {
         DrawLineV((Vector2) { xOffset, gridStart.y }, (Vector2) { xOffset, gridStart.y + gridSize.y }, ColorAlpha(WHITE, alpha));
         xOffset += cellSize;
     }
 
+    // Horizontal lines
     float yOffset = gridStart.y;
     for (int row = 0; row < g_gridRows + 1; row++) {
         DrawLineV((Vector2) { gridStart.x, yOffset }, (Vector2) { gridStart.x + gridSize.x, yOffset }, ColorAlpha(WHITE, alpha));
         yOffset += cellSize;
     }
 
+    // Start and goal cells
     bool startValid = Int2IsValid(g_start);
     bool goalValid  = Int2IsValid(g_goal);
     if (startValid)
@@ -325,6 +350,7 @@ static void DrawGridAStar(Rectangle boundary) {
     if (goalValid)
         DrawGridRectangle(g_goal, gridStart, cellSize, true, 120.0f, 1.0f);
 
+    // Blocking and visited cells
     for (int row = 0; row < g_gridRows; row++) {
         for (int col = 0; col < g_gridCols; col++) {
             if (AStarIsBlocked(col, row))
